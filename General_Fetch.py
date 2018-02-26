@@ -41,6 +41,7 @@ class Fetch:
 
 	    #Quake catalog object 
 		self.quake_cat = None
+		self.inventory = None
 
 	def fetchInventory(self):
 
@@ -50,6 +51,7 @@ class Fetch:
 			self.inventory = self.client.get_stations(network=self.network,station=self.station,level=self.level,\
 				channel=self.channel,starttime=self.starttime,endtime=self.endtime,minlongitude=self.minlongitude,\
 				minlatitude=self.minlatitude,maxlongitude=self.maxlongitude,maxlatitude=self.maxlatitude)
+			print self.inventory
 		else:
 			self.inventory = self.client.get_stations(network=self.network,station=None,level=self.level,\
 				channel=self.channel,starttime=self.starttime,endtime=self.endtime,minlongitude=self.minlongitude,
@@ -118,15 +120,49 @@ class Fetch:
 
 		'''Write station information to file, which can be loaded as a pandas dataframe'''
 
+		ofname = 'Stations_%s_%s_%s_%s_%s_%s_%s.dat' %(self.starttime,self.endtime,self.minlatitude,\
+			self.minlongitude,self.maxlatitude,self.maxlongitude,self.minmag)
+
+		outfile = open(ofname,'w')
+
+		try:
+
+			for network in self.inventory:
+
+				netname = network.code
+
+				for station in network:
+					code = station.code 
+					lat = station.latitude
+					lon = station.longitude
+					ele = station.elevation
+					stdate = station.start_date
+
+					outfile.write("%s %s %s %s %s %s\n" %(lon,lat,ele,netname,code,stdate))
+
+			outfile.close()
+
+		except:
+
+			print "Need to run fetchInventory before writing stations"
+			sys.exit(1)
+
+
 	def writeRays(self,catalog):
 
 		'''Write station-event information to file, which can be loaded as a pandas dataframe'''
+
+		#Either we want to look at data that has already been downloaded and investiage the station-event pairs, or 
+		#just make station-event pairs based on whats in the inventory and event catalogs 
 
 	def GetData(self,stationdirpath='stations',datadirpath='waveforms',req_type='continuous',\
 		chunklength=86400,tracelen=2000):
 
 		'''Call obspy mass downloader to get waveform data. Chunklength refers to the trace length option
 		for a continuous download, tracelen is for an event-based request'''
+
+		#Currently set up to download one day worth of data in the continuous mode, 2000 seconds 
+		#in the event-based mode
 
 		self.stationdirpath = stationdirpath
 		self.datadirpath = datadirpath
@@ -183,7 +219,7 @@ class Fetch:
 						reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
 						channel=self.channel,location="",network=self.network,station=self.station)
 
-				#Case where we want all networks within a region
+				#Case where we want all networks within a region (assumes that we also want all stations)
 
 				else:
 
@@ -264,7 +300,8 @@ class Fetch:
 if __name__ == '__main__':
 
 	network = "TA,AK"
-	station = "H22K,TOLK,COLD"
+	#station = "H22K,TOLK,COLD"
+	station = None
 	starttime = "2016-08-01"
 	endtime = "2016-09-01"
 	centercoords = [58, -145]
@@ -275,7 +312,9 @@ if __name__ == '__main__':
 	test = Fetch(network=network,station=station,starttime=UTCDateTime(starttime),endtime=UTCDateTime(endtime),\
 		minlatitude=55,maxlatitude=70,minlongitude=-160,maxlongitude=-140)
 	test.fetchEvents(centercoords=centercoords,minradius=minradius,maxradius=maxradius,minmag=minmag)
-	test.writeEvents()
+	#test.writeEvents()
+	test.fetchInventory()
+	test.writeStations()
 
 	print "Getting data"
 	#test.GetData(req_type='event')

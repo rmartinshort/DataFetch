@@ -18,6 +18,8 @@ class Fetch:
 	def __init__(self,network=None,station=None,level='channel',channel='BH*',starttime=None,endtime=None,\
 		minlongitude=None,maxlongitude=None,minlatitude=None,maxlatitude=None,clientname="IRIS"):
 
+		'''Note that network and station can be a list of inputs,like "AK,TA,AT"'''
+
 		self.client = Client(clientname) 
 		self.clientname = clientname
 
@@ -83,13 +85,36 @@ class Fetch:
 			print "---------------------------------"
 			print "Got the following events"
 			print "---------------------------------"
-			print self.quake_cat
+			print self.quake_cat.__str__(print_all=True)
 
-	def writeEvents(self,catalog):
+	def writeEvents(self):
 
 		'''Write event information to file, which can be loaded as a pandas dataframe'''
 
-	def writeStations(self,catalog):
+		ofname = 'Events_%s_%s_%s_%s_%s_%s_%s.dat' %(self.starttime,self.endtime,self.minlatitude,\
+			self.minlongitude,self.maxlatitude,self.maxlongitude,self.minmag)
+
+		outfile = open(ofname,'w')
+
+		if self.quake_cat == None:
+
+			print "Need to call fetchEvents first"
+			sys.exit(1)
+
+		for event in self.quake_cat:
+
+			time = event.origins[0].time
+			lat = event.origins[0].latitude
+			lon = event.origins[0].longitude
+			dep = event.origins[0].depth/1000.0
+			mag = event.magnitudes[0].mag
+
+			outfile.write("%s %s %s %s %s\n" %(lon,lat,dep,mag,time))
+
+		outfile.close() 
+
+
+	def writeStations(self):
 
 		'''Write station information to file, which can be loaded as a pandas dataframe'''
 
@@ -97,9 +122,11 @@ class Fetch:
 
 		'''Write station-event information to file, which can be loaded as a pandas dataframe'''
 
-	def GetData(self,stationdirpath='stations',datadirpath='waveforms',req_type='continuous'):
+	def GetData(self,stationdirpath='stations',datadirpath='waveforms',req_type='continuous',\
+		chunklength=86400,tracelen=2000):
 
-		'''Call obspy mass downloader to get waveform data'''
+		'''Call obspy mass downloader to get waveform data. Chunklength refers to the trace length option
+		for a continuous download, tracelen is for an event-based request'''
 
 		self.stationdirpath = stationdirpath
 		self.datadirpath = datadirpath
@@ -112,6 +139,9 @@ class Fetch:
 			print "Stop: Must call fetchEvents first to get event catalog to download from"
 
 		if req_type == 'continuous':
+
+			#Get data from all stations within this domain
+
 			domain = RectangularDomain(minlatitude=self.minlatitude,maxlatitude=self.maxlatitude,\
 				minlongitude=self.minlongitude,maxlongitude=self.maxlongitude)
 
@@ -119,7 +149,7 @@ class Fetch:
 
 			restrictions = Restrictions(\
                            starttime=starttime,endtime=endtime,\
-                           chunklength_in_sec=86400,\
+                           chunklength_in_sec=chunklength,\
                            channel=self.channel,station=self.station,location="",\
                            reject_channels_with_gaps=False,\
                            minimum_length=0.0,minimum_interstation_distance_in_m=100.0)
@@ -130,9 +160,11 @@ class Fetch:
 
 			mdl.download(domain, restrictions, mseed_storage=datadirpath, stationxml_storage=stationdirpath)
 
-		elif req_type == 'events':
+		elif req_type == 'event':
 
 			#Add option for non-continuous download - event/station pairing for example
+
+			#Ger data for all stations in this domain
 
 			domain = RectangularDomain(minlatitude=self.minlatitude,maxlatitude=self.maxlatitude,\
 				minlongitude=self.minlongitude,maxlongitude=self.maxlongitude)
@@ -147,13 +179,15 @@ class Fetch:
 
 				if self.network:
 
-					restrictions = Restrictions(starttime=origin_time - (5 * 60),endtime=origin_time + 3600,\
+					restrictions = Restrictions(starttime=origin_time,endtime=origin_time + tracelen,\
 						reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
 						channel=self.channel,location="",network=self.network,station=self.station)
 
+				#Case where we want all networks within a region
+
 				else:
 
-					restrictions = Restrictions(starttime=origin_time - (5 * 60),endtime=origin_time + 3600,\
+					restrictions = Restrictions(starttime=origin_time,endtime=origin_time + 3600,\
 						reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
 						channel=self.channel)
 
@@ -227,15 +261,10 @@ class Fetch:
 
 
 
-
-
-
-
-
 if __name__ == '__main__':
 
-	network = "TA"
-	station = "H22K"
+	network = "TA,AK"
+	station = "H22K,TOLK,COLD"
 	starttime = "2016-08-01"
 	endtime = "2016-09-01"
 	centercoords = [58, -145]
@@ -245,10 +274,13 @@ if __name__ == '__main__':
 
 	test = Fetch(network=network,station=station,starttime=UTCDateTime(starttime),endtime=UTCDateTime(endtime),\
 		minlatitude=55,maxlatitude=70,minlongitude=-160,maxlongitude=-140)
-	#test.fetchEvents(centercoords=centercoords,minradius=minradius,maxradius=maxradius,minmag=minmag)
-	#test.GetData(req_type='events')
-	test.Set_datapaths()
-	test.CorrectResponse()
+	test.fetchEvents(centercoords=centercoords,minradius=minradius,maxradius=maxradius,minmag=minmag)
+	test.writeEvents()
+
+	print "Getting data"
+	#test.GetData(req_type='event')
+	#test.Set_datapaths()
+	#test.CorrectResponse()
 
 
 

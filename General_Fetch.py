@@ -184,7 +184,7 @@ class Fetch:
 			#Download data in daily segements - may want to change
 
 			restrictions = Restrictions(\
-                           starttime=starttime,endtime=endtime,\
+                           starttime=self.starttime,endtime=self.endtime,\
                            chunklength_in_sec=chunklength,\
                            channel=self.channel,station=self.station,location="",\
                            reject_channels_with_gaps=False,\
@@ -192,7 +192,7 @@ class Fetch:
 
 			#Call mass downloader to get the waveform information
 
-			mdl = MassDownloader(providers=[self.client])
+			mdl = MassDownloader(providers=[self.clientname])
 
 			mdl.download(domain, restrictions, mseed_storage=datadirpath, stationxml_storage=stationdirpath)
 

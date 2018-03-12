@@ -8,6 +8,7 @@
 from obspy.clients.fdsn import Client
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth, locations2degrees
+from obspy.taup import TauPyModel
 import obspy as op
 import datetime
 import glob
@@ -16,7 +17,8 @@ import sys
 
 class Fetch:
 	def __init__(self,network=None,station=None,level='channel',channel='BH*',starttime=None,endtime=None,\
-		minlongitude=None,maxlongitude=None,minlatitude=None,maxlatitude=None,clientname="IRIS"):
+		minlongitude=None,maxlongitude=None,minlatitude=None,maxlatitude=None,clientname="IRIS",\
+		vmodel="ak135"):
 
 		'''Note that network and station can be a list of inputs,like "AK,TA,AT"'''
 
@@ -42,6 +44,9 @@ class Fetch:
 	    #Quake catalog object 
 		self.quake_cat = None
 		self.inventory = None
+
+		#For ray calculation
+		self.vmodel = TauPyModel(model=vmodel)
 
 	def fetchInventory(self):
 
@@ -89,9 +94,11 @@ class Fetch:
 			print "---------------------------------"
 			print self.quake_cat.__str__(print_all=True)
 
-	def writeEvents(self):
+	def writeEvents(self,centercoords=None):
 
-		'''Write event information to file, which can be loaded as a pandas dataframe'''
+		'''Write event information to file, which can be loaded as a pandas dataframe.
+		Specify centercoords as a list [lon,lat] and the time of the first arrival (P) arrival
+		will be reported'''
 
 		ofname = 'Events_%s_%s_%s_%s_%s_%s_%s.dat' %(self.starttime,self.endtime,self.minlatitude,\
 			self.minlongitude,self.maxlatitude,self.maxlongitude,self.minmag)
@@ -103,15 +110,52 @@ class Fetch:
 			print "Need to call fetchEvents first"
 			sys.exit(1)
 
-		for event in self.quake_cat:
+		if centercoords == None:
 
-			time = event.origins[0].time
-			lat = event.origins[0].latitude
-			lon = event.origins[0].longitude
-			dep = event.origins[0].depth/1000.0
-			mag = event.magnitudes[0].mag
+			for event in self.quake_cat:
 
-			outfile.write("%s %s %s %s %s\n" %(lon,lat,dep,mag,time))
+				time = event.origins[0].time
+				lat = event.origins[0].latitude
+				lon = event.origins[0].longitude
+				dep = event.origins[0].depth/1000.0
+				mag = event.magnitudes[0].mag
+
+				outfile.write("%s %s %s %s %s\n" %(lon,lat,dep,mag,time))
+
+		#In this case, we write the time of the first arriving phase at the stations
+
+		else:
+
+			try:
+				clon = centercoords[0]
+				clat = centercoords[1]
+			except:
+				print "Centercoors needs to be entered as list [lon,lat]"
+				sys.exit(1)
+
+			for event in self.quake_cat:
+
+				time = event.origins[0].time
+				lat = event.origins[0].latitude
+				lon = event.origins[0].longitude
+				dep = event.origins[0].depth/1000.0
+
+				cdist = locations2degrees(lat,lon,clat,clon)
+				arrivals = self.vmodel.get_travel_times(source_depth_in_km=dep,\
+					distance_in_degree=cdist,phase_list=["p","P"])
+
+				if len(arrivals) > 0:
+					first_phase = arrivals[0].name
+					first_phase_time = time + arrivals[0].time
+
+				else:
+					first_phase = 'NaN'
+					first_phase_time = "NaN"
+
+				mag = event.magnitudes[0].mag
+
+				outfile.write("%s %s %s %s %s %s %s\n" %(lon,lat,dep,mag,time,first_phase_time,first_phase))
+
 
 		outfile.close() 
 

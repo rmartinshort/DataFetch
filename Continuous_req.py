@@ -16,7 +16,7 @@ def main():
 	station = 'TOLK'
 	starttime = "2017-08-01"
 	endtime = "2017-08-03"
-	centercoords = [58, -145]
+	centercoords = [58, -145] #Center of region for teleseismic request
 	minradius = 0
 	maxradius = 180
 
@@ -25,11 +25,12 @@ def main():
 
 	#Get all global teleseisms 
 	params.fetchEvents(centercoords=centercoords,minradius=minradius,maxradius=maxradius,minmag=5)
-	params.writeEvents()
+
+	params.writeEvents(centercoords=[-149.57,68.64]) #includes the coordinates of TOLK station 
 
 	#Get all local events
 	params.fetchEvents(minmag=0.0)
-	params.writeEvents()
+	params.writeEvents(centercoords=[-149.57,68.64])
 
 	#Download the data 
 	params.GetData(datadirpath='Continuous_req_example')

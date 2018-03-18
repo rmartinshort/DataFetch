@@ -347,7 +347,7 @@ if __name__ == '__main__':
 	#station = "H22K,TOLK,COLD"
 	station = None
 	starttime = "2016-08-01"
-	endtime = "2016-09-01"
+	endtime = "2016-11-01"
 	centercoords = [58, -145]
 	minradius = 30
 	maxradius = 120
@@ -361,7 +361,7 @@ if __name__ == '__main__':
 	test.writeStations()
 
 	print "Getting data"
-	#test.GetData(req_type='event')
+	test.GetData(req_type='event',datadirpath='waveforms2')
 	#test.Set_datapaths()
 	#test.CorrectResponse()
 

@@ -22,7 +22,7 @@ class Fetch:
 
 		'''Note that network and station can be a list of inputs,like "AK,TA,AT"'''
 
-		self.client = Client(clientname) 
+		self.client = Client(clientname)
 		self.clientname = clientname
 
 		self.network = network
@@ -41,7 +41,7 @@ class Fetch:
 		self.maxlatitude = maxlatitude
 		self.maxlongitude = maxlongitude
 
-	    #Quake catalog object 
+	    #Quake catalog object
 		self.quake_cat = None
 		self.inventory = None
 
@@ -56,7 +56,7 @@ class Fetch:
 			self.inventory = self.client.get_stations(network=self.network,station=self.station,level=self.level,\
 				channel=self.channel,starttime=self.starttime,endtime=self.endtime,minlongitude=self.minlongitude,\
 				minlatitude=self.minlatitude,maxlongitude=self.maxlongitude,maxlatitude=self.maxlatitude)
-			print self.inventory
+			print(self.inventory)
 		else:
 			self.inventory = self.client.get_stations(network=self.network,station=None,level=self.level,\
 				channel=self.channel,starttime=self.starttime,endtime=self.endtime,minlongitude=self.minlongitude,
@@ -71,28 +71,28 @@ class Fetch:
 		self.minmag = minmag
 		self.minradius = minradius
 		self.maxradius = maxradius
-		self.centercoords = centercoords 
+		self.centercoords = centercoords
 
 		if centercoords:
 
-			print "\nGathering earthquakes using center/radius info\n"
+			print("\nGathering earthquakes using center/radius info\n")
 
 			self.quake_cat = self.client.get_events(starttime=self.starttime,endtime=self.endtime,latitude=self.centercoords[0],\
 				longitude=self.centercoords[1],minradius=self.minradius,maxradius=self.maxradius,minmagnitude=minmag)
 
 		else:
 
-			print "\nGathering earthquakes within bounding box\n"
+			print("\nGathering earthquakes within bounding box\n")
 
 			self.quake_cat = self.client.get_events(starttime=self.starttime,endtime=self.endtime,minlatitude=self.minlatitude,\
 				maxlatitude=self.maxlatitude,minlongitude=self.minlongitude,maxlongitude=self.maxlongitude,minmagnitude=self.minmag)
 
 		if display == True:
 
-			print "---------------------------------"
-			print "Got the following events"
-			print "---------------------------------"
-			print self.quake_cat.__str__(print_all=True)
+			print("---------------------------------")
+			print("Got the following events")
+			print("---------------------------------")
+			print(self.quake_cat.__str__(print_all=True))
 
 	def writeEvents(self,centercoords=None):
 
@@ -107,7 +107,7 @@ class Fetch:
 
 		if self.quake_cat == None:
 
-			print "Need to call fetchEvents first"
+			print("Need to call fetchEvents first")
 			sys.exit(1)
 
 		if centercoords == None:
@@ -130,7 +130,7 @@ class Fetch:
 				clon = centercoords[0]
 				clat = centercoords[1]
 			except:
-				print "Centercoors needs to be entered as list [lon,lat]"
+				print("Centercoors needs to be entered as list [lon,lat]")
 				sys.exit(1)
 
 			for event in self.quake_cat:
@@ -157,7 +157,7 @@ class Fetch:
 				outfile.write("%s %s %s %s %s %s %s\n" %(lon,lat,dep,mag,time,first_phase_time,first_phase))
 
 
-		outfile.close() 
+		outfile.close()
 
 
 	def writeStations(self):
@@ -176,7 +176,7 @@ class Fetch:
 				netname = network.code
 
 				for station in network:
-					code = station.code 
+					code = station.code
 					lat = station.latitude
 					lon = station.longitude
 					ele = station.elevation
@@ -188,7 +188,7 @@ class Fetch:
 
 		except:
 
-			print "Need to run fetchInventory before writing stations"
+			print("Need to run fetchInventory before writing stations")
 			sys.exit(1)
 
 
@@ -196,8 +196,8 @@ class Fetch:
 
 		'''Write station-event information to file, which can be loaded as a pandas dataframe'''
 
-		#Either we want to look at data that has already been downloaded and investiage the station-event pairs, or 
-		#just make station-event pairs based on whats in the inventory and event catalogs 
+		#Either we want to look at data that has already been downloaded and investiage the station-event pairs, or
+		#just make station-event pairs based on whats in the inventory and event catalogs
 
 	def GetData(self,stationdirpath='stations',datadirpath='waveforms',req_type='continuous',\
 		chunklength=86400,tracelen=2000):
@@ -205,7 +205,7 @@ class Fetch:
 		'''Call obspy mass downloader to get waveform data. Chunklength refers to the trace length option
 		for a continuous download, tracelen is for an event-based request'''
 
-		#Currently set up to download one day worth of data in the continuous mode, 2000 seconds 
+		#Currently set up to download one day worth of data in the continuous mode, 2000 seconds
 		#in the event-based mode
 
 		self.stationdirpath = stationdirpath
@@ -216,7 +216,7 @@ class Fetch:
 
 		if self.quake_cat == None:
 
-			print "Stop: Must call fetchEvents first to get event catalog to download from"
+			print("Stop: Must call fetchEvents first to get event catalog to download from")
 
 		if req_type == 'continuous':
 
@@ -251,7 +251,7 @@ class Fetch:
 
 			for event in self.quake_cat:
 
-				print "Downloading data for event %s" %event
+				print("Downloading data for event %s" %event)
 
 				#For each event, download the waveforms at all stations requested
 
@@ -280,7 +280,7 @@ class Fetch:
 
 		'''Set the directory names where downloaded data can be found'''
 
-		self.stationdirpath = station_path 
+		self.stationdirpath = station_path
 		self.datadirpath = waveforms_path
 
 
@@ -295,7 +295,7 @@ class Fetch:
 		elif resptype == 'acceleration':
 			outtype = "ACC"
 		else:
-			print "User input correction unit not valid: use displacement, velocity or acceleration"
+			print("User input correction unit not valid: use displacement, velocity or acceleration")
 			sys.exit(1)
 
 		#get the station data
@@ -310,23 +310,23 @@ class Fetch:
 
 			waveforms_path = '%s/%s*.mseed' %(self.datadirpath,stationname)
 			waveforms = glob.glob(waveforms_path)
-			
+
 			stream = op.Stream()
 			added_waveforms = []
 
 			for waveform in waveforms:
 
-				print "adding waveform %s to stream" %waveform
+				print("Adding waveform %s to stream" %waveform)
 
 				try:
 					st = op.read(waveform,format='mseed')
 					stream += st[0]
 					added_waveforms.append(waveform)
 				except:
-					print "Could not add %s to stream" %waveform
+					print("Could not add %s to stream" %waveform)
 					continue
 
-			print "\nCorrecting responses in stream\n"
+			print("\nCorrecting responses in stream\n")
 
 			stream.remove_response(inventory=inv,output=outtype)
 
@@ -351,7 +351,7 @@ if __name__ == '__main__':
 	centercoords = [58, -145]
 	minradius = 30
 	maxradius = 120
-	minmag = 6.0 
+	minmag = 6.0
 
 	test = Fetch(network=network,station=station,starttime=UTCDateTime(starttime),endtime=UTCDateTime(endtime),\
 		minlatitude=55,maxlatitude=70,minlongitude=-160,maxlongitude=-140)
@@ -360,14 +360,7 @@ if __name__ == '__main__':
 	test.fetchInventory()
 	test.writeStations()
 
-	print "Getting data"
+	print("Getting data")
 	test.GetData(req_type='event',datadirpath='waveforms2')
 	#test.Set_datapaths()
 	#test.CorrectResponse()
-
-
-
-
-
-
-

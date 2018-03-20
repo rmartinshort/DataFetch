@@ -200,7 +200,7 @@ class Fetch:
 		#just make station-event pairs based on whats in the inventory and event catalogs
 
 	def GetData(self,stationdirpath='stations',datadirpath='waveforms',req_type='continuous',\
-		chunklength=86400,tracelen=2000):
+		chunklength=86400,tracelen=20000):
 
 		'''Call obspy mass downloader to get waveform data. Chunklength refers to the trace length option
 		for a continuous download, tracelen is for an event-based request'''
@@ -267,7 +267,7 @@ class Fetch:
 
 				else:
 
-					restrictions = Restrictions(starttime=origin_time,endtime=origin_time + 3600,\
+					restrictions = Restrictions(starttime=origin_time,endtime=origin_time + tracelen,\
 						reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
 						channel=self.channel)
 
@@ -353,6 +353,12 @@ if __name__ == '__main__':
 	maxradius = 120
 	minmag = 6.0
 
+
+	network='TA'
+	station='E25K'
+	starttime = "2016-08-23"
+	endtime = "2016-08-25"
+
 	test = Fetch(network=network,station=station,starttime=UTCDateTime(starttime),endtime=UTCDateTime(endtime),\
 		minlatitude=55,maxlatitude=70,minlongitude=-160,maxlongitude=-140)
 	test.fetchEvents(centercoords=centercoords,minradius=minradius,maxradius=maxradius,minmag=minmag)
@@ -361,6 +367,6 @@ if __name__ == '__main__':
 	test.writeStations()
 
 	print("Getting data")
-	test.GetData(req_type='event',datadirpath='waveforms2')
+	test.GetData(req_type='event',datadirpath='waveforms3')
 	#test.Set_datapaths()
 	#test.CorrectResponse()

@@ -140,9 +140,13 @@ class Fetch:
 				lon = event.origins[0].longitude
 				dep = event.origins[0].depth/1000.0
 
-				cdist = locations2degrees(lat,lon,clat,clon)
-				arrivals = self.vmodel.get_travel_times(source_depth_in_km=dep,\
+				try:
+
+					cdist = locations2degrees(lat,lon,clat,clon)
+					arrivals = self.vmodel.get_travel_times(source_depth_in_km=dep,\
 					distance_in_degree=cdist,phase_list=["p","P"])
+				except:
+					continue
 
 				if len(arrivals) > 0:
 					first_phase = arrivals[0].name
@@ -154,7 +158,7 @@ class Fetch:
 
 				mag = event.magnitudes[0].mag
 
-				outfile.write("%s %s %s %s %s %s %s\n" %(lon,lat,dep,mag,time,first_phase_time,first_phase))
+				outfile.write("%s %s %s %s %s %s %s %s\n" %(lon,lat,dep,mag,time,first_phase_time,first_phase,cdist))
 
 
 		outfile.close()

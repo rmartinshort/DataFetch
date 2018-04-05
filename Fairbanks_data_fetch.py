@@ -16,8 +16,8 @@ def main():
 
     #Get all local events
     centercoords = [-147.6732,64.8752]
-    #params.fetchEvents(minmag=0.0)
-    #params.writeEvents(centercoords=centercoords)
+    params.fetchEvents(minmag=0.0)
+    params.writeEvents(centercoords=centercoords)
 
 
     #Teleseismic/large events

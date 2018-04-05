@@ -9,7 +9,10 @@ import obspy as op
 
 def main():
 
-    event_file_name = "Global_Events_2016-07-29T00:00:00.000000Z_2016-10-04T00:00:00.000000Z_55_-160_70_-140_6.dat"
+    before_lag = 10*60 #length of time before P arrival to cut
+    after_lag = 15*60 #length of time after P arrival to cut
+
+    event_file_name = "Local_Events_2016-07-29T00:00:00.000000Z_2016-10-04T00:00:00.000000Z_55_-160_70_-140_0.0.dat"
 
     fb_df = pd.read_csv(event_file_name,
                    sep=' ',names=['lon','lat','dep','mag','otime','atime','aphase','dist'])
@@ -18,18 +21,15 @@ def main():
     fb_df.sort_values(by='mag',ascending=False,inplace=True)
     fb_df.reset_index(drop=True,inplace=True)
 
-    exp_start_time = op.UTCDateTime('20160813185229')
-
     stimes = []
     etimes = []
 
     #Determine the timestamps of the start and end files for each event
     for index, row in fb_df.iterrows():
 
-       tsince_start = op.UTCDateTime(row['atime']) - exp_start_time
-       (mins,seconds) = divmod(tsince_start,60)
-       startftime = exp_start_time + (mins-10)*60
-       endftime = startftime + 15*60
+       atime = op.UTCDateTime(row['atime'])
+       startftime = atime - before_lag
+       endftime = atime + after_lag
        sname = "%i%02d%02d%02d%02d%02d%02d" %(startftime.year,startftime.month,startftime.day,\
        startftime.hour,startftime.minute,startftime.second,startftime.microsecond)
        sname = sname[:-2]
@@ -42,7 +42,7 @@ def main():
     fb_df['start_file'] = stimes
     fb_df['end_file'] = etimes
 
-    fb_df.to_csv("Global_events_fb_fiber.dat",index=False)
+    fb_df.to_csv("Local_events_fb_fiber.dat",index=False)
 
 
 if __name__ == "__main__":

@@ -15,11 +15,10 @@ import glob
 import sys
 import numpy as np
 
-
 class Fetch:
 	def __init__(self,network=None,station=None,level='channel',channel='BH*',starttime=None,endtime=None,\
 		minlongitude=None,maxlongitude=None,minlatitude=None,maxlatitude=None,mindepth=None,maxdepth=None,clientname="IRIS",\
-		vmodel="ak135"):
+		vmodel="ak135",station_autoselect=False):
 
 		'''Note that network and station can be a list of inputs,like "AK,TA,AT"'''
 
@@ -53,6 +52,8 @@ class Fetch:
 		#EK added 03/2019
 		self.mindepth = mindepth
 		self.maxdepth = maxdepth
+
+		self.station_autoselect_flag = station_autoselect
 
 
 	def fetchInventory(self):
@@ -107,7 +108,7 @@ class Fetch:
 		Specify centercoords as a list [lon,lat] and the time of the first arrival (P) arrival
 		will be reported'''
 
-		ofname = 'Events_%s_%s_%s_%s_%s_%s_%s_%s_%s_km_%s_km.dat' %(self.starttime,self.endtime,self.minlatitude,\
+		ofname = 'Events_%s_%s_%s_%s_%s_%s_mag_%s-%s_depth_%s-%s_km.dat' %(self.starttime,self.endtime,self.minlatitude,\
 			self.minlongitude,self.maxlatitude,self.maxlongitude,self.minmag,self.maxmag,self.mindepth,self.maxdepth)
 
 		outfile = open(ofname,'w')
@@ -124,11 +125,38 @@ class Fetch:
 				time = event.origins[0].time
 				lat = event.origins[0].latitude
 				lon = event.origins[0].longitude
-				dep = event.origins[0].depth/1000.0
+				dep = event.origins[0].depth/1000.
 				mag = event.magnitudes[0].mag
 
-				outfile.write("%s %s %s %s %s\n" %(lon,lat,dep,mag,time))
 
+				if self.station_autoselect_flag == True:
+					
+					cnt = 0
+	
+					for network in self.inventory:
+						for station in network:
+
+							stlat=station.latitude	
+							stlon=station.longitude
+
+							ddeg = locations2degrees(lat,lon,stlat,stlon)
+							distance_m,az,baz = gps2dist_azimuth(lat,lon,stlat,stlon)
+
+							theta = np.arctan2(distance_m,dep*1000.)
+
+							if theta <= np.pi/4:
+
+								arrivals = self.vmodel.get_travel_times(source_depth_in_km=dep,distance_in_degree=ddeg,phase_list=["s","S"])
+
+								if len(arrivals) > 0:
+									cnt = cnt + 1
+					if cnt > 0:
+						outfile.write("%s %s %s %s %s\n" %(lon,lat,dep,mag,time))
+				else:
+					outfile.write("%s %s %s %s %s\n" %(lon,lat,dep,mag,time))
+
+		#haven't added the SWW here, so in this case all events wiil be written to the file, might change in the future if needed		
+		
 		#In this case, we write the time of the first arriving phase at the stations
 
 		else:
@@ -175,7 +203,7 @@ class Fetch:
 
 		'''Write station information to file, which can be loaded as a pandas dataframe'''
 
-		ofname = 'Stations_%s_%s_%s_%s_%s_%s_%s_%s_%s_km_%s_km.dat' %(self.starttime,self.endtime,self.minlatitude,\
+		ofname = 'Stations_%s_%s_%s_%s_%s_%s_mag_%s-%s_depth_%s-%s_km.dat' %(self.starttime,self.endtime,self.minlatitude,\
 			self.minlongitude,self.maxlatitude,self.maxlongitude,self.minmag,self.maxmag,self.mindepth,self.maxdepth)
 
 		outfile = open(ofname,'w')
@@ -187,13 +215,41 @@ class Fetch:
 				netname = network.code
 
 				for station in network:
+
 					code = station.code
 					lat = station.latitude
 					lon = station.longitude
 					ele = station.elevation
 					stdate = station.start_date
+					
+					if self.station_autoselect_flag == True:
+						#EK added 04/2019 to write only stations that we will later download
+						cnt = 0.
 
-					outfile.write("%s %s %s %s %s %s\n" %(lon,lat,ele,netname,code,stdate))
+						for event in self.quake_cat:
+
+							time = event.origins[0].time
+							evlat = event.origins[0].latitude
+							evlon = event.origins[0].longitude
+							dep = event.origins[0].depth/1000.
+							mag = event.magnitudes[0].mag
+		
+							ddeg = locations2degrees(evlat,evlon,lat,lon)
+							distance_m,az,baz = gps2dist_azimuth(evlat,evlon,lat,lon)
+
+							theta = np.arctan2(distance_m,dep*1000.)
+
+							if theta <= np.pi/4:
+
+								arrivals = self.vmodel.get_travel_times(source_depth_in_km=dep,distance_in_degree=ddeg,phase_list=["s","S"])
+
+								if len(arrivals) > 0:
+									cnt = cnt + 1
+						if cnt > 0:
+
+							outfile.write("%s %s %s %s %s %s\n" %(lon,lat,ele,netname,code,stdate))
+					else:
+						outfile.write("%s %s %s %s %s %s\n" %(lon,lat,ele,netname,code,stdate))
 
 			outfile.close()
 
@@ -211,7 +267,7 @@ class Fetch:
 		#just make station-event pairs based on whats in the inventory and event catalogs
 
 	def GetData(self,stationdirpath='stations',datadirpath='waveforms',req_type='continuous',\
-		chunklength=86400,tracelen=20000,station_autoselect=True):
+		chunklength=86400,tracelen=20000, vmodel='ak135'):
 
 		'''Call obspy mass downloader to get waveform data. Chunklength refers to the trace length option
 		for a continuous download, tracelen is for an event-based request'''
@@ -261,22 +317,28 @@ class Fetch:
 			domain = RectangularDomain(minlatitude=self.minlatitude,maxlatitude=self.maxlatitude,\
 				minlongitude=self.minlongitude,maxlongitude=self.maxlongitude)
 
-			for event in self.quake_cat:
 
+			for event in self.quake_cat:
+				cnt = 0.
 				print("Downloading data for event %s" %event)
 
 				#For each event, download the waveforms at all stations requested
 
 				origin_time = event.origins[0].time
 
+				vel_model = TauPyModel(model=vmodel)			
 
-				#case where we only want to download data for some station-event pairs
+				#case where we only want to download data for some station-event pairs'
+				stations_to_exclude = []
 
-				if station_autoselect == True:
+				if self.station_autoselect_flag == True:
 
 					stations_to_download = []
 					evlat = event.origins[0].latitude
 					evlon = event.origins[0].longitude
+					
+					#EK changes added 04/2019
+					evdep = event.origins[0].depth
 
 					for network in self.inventory:
 
@@ -285,23 +347,46 @@ class Fetch:
 							stlat = station.latitude
 							stlon = station.longitude
 
-							#To complete: Figure out what what stations to download from
-
+							#EK 04/2019
+							#this downloads data within Short Wave Window (SWW), a cone under the station bounded by an angle, here we chose 45 deg
+							#calculate distance between eq and station and azimuth
+							
 							ddeg = locations2degrees(evlat,evlon,stlat,stlon)
 							distance_m,az,baz = gps2dist_azimuth(evlat,evlon,stlat,stlon)
 
-							#This is just a placeholder to show that the station list approach works
-							#it should be removed later
+							#calculate proxy for incident angle
 
-							if np.random.rand() > 0.5:
-								stations_to_download.append(station.code)
+							theta = np.arctan2(distance_m,evdep)
 
+							if theta <= np.pi/4:
+
+								#find if station has needed arrival
+
+								arrivals = vel_model.get_travel_times(source_depth_in_km=evdep/1000.,distance_in_degree=ddeg,phase_list=["s","S"])
+								if len(arrivals) > 0:
+									
+									#get stations you want to download
+
+									stations_to_download.append(station.code)
+									print(station.code, 'angle = %.2f' % np.rad2deg(theta))
+									print(arrivals)
+									cnt = cnt + 1
+								else:
+									stations_to_exclude.append(station.code)
+							else:
+
+								if station.code not in stations_to_exclude:
+									stations_to_exclude.append(station.code)
+
+
+					print("\n-------------\n%g event-station pairs found in SWW\n-------------\n" %cnt)
 					print("\n-------------\nSelecting just the following stations for download\n-------------\n")
 					print(stations_to_download)
-
-					restrictions = Restrictions(starttime=origin_time,endtime=origin_time + tracelen,\
-						reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
-						channel=self.channel,location="",network=self.network,station=stations_to_download)
+					
+					#this approach doesn't work, use exclude_stations flag later
+					#restrictions = Restrictions(starttime=origin_time,endtime=origin_time + tracelen,\
+						#reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
+						#channel=self.channel,location="",network=self.network,station=stations_to_download)
 
 
 				#case where we have single network
@@ -310,15 +395,16 @@ class Fetch:
 
 					restrictions = Restrictions(starttime=origin_time,endtime=origin_time + tracelen,\
 						reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
-						channel=self.channel,location="",network=self.network,station=self.station)
+						channel=self.channel,location="",network=self.network,exclude_stations=stations_to_exclude)
 
-				#Case where we want all networks within a region (assumes that we also want all stations)
+				#Case where we want all networks within a region (assumes that we also want all stations unless we have built
+				# a stations to exclude list)
 
 				else:
 
 					restrictions = Restrictions(starttime=origin_time,endtime=origin_time + tracelen,\
 						reject_channels_with_gaps=False, minimum_length=0.95, minimum_interstation_distance_in_m=10E3,\
-						channel=self.channel)
+						channel=self.channel,exclude_stations=stations_to_exclude)
 
 				mdl = MassDownloader(providers=[self.clientname])
 

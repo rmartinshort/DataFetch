@@ -39,7 +39,7 @@ def main():
 	#Get the data and store in a file called waveforms_dir. You can give it any path
 	#Note that the data are downloaded as mseed files, one per component
 	print("Getting data")
-	test.GetData(req_type='event',datadirpath='hawaii_test')
+	test.GetData(req_type='event',datadirpath='hawaii_test',station_autoselect=True)
 
 	#Remove instrument response. Default is to displacement
 	#test.CorrectResponse()
